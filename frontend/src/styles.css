@@ -74,6 +74,8 @@ h2 em { color:var(--amber); font-style:normal; }
 
 footer { color:#c4ccd5; background:#071522; }.footer-main { display:grid; grid-template-columns:1fr 1.2fr 1fr; gap:70px; align-items:center; padding-block:65px; }.footer-main > p { color:#82909e; line-height:1.65; font-size:.9rem; }.footer-links { display:grid; grid-template-columns:1fr 1fr; gap:14px; font-size:.88rem; }.footer-links a:hover { color:var(--amber); }.footer-bottom { display:flex; justify-content:space-between; padding-block:20px; border-top:1px solid #ffffff13; font-size:.72rem; color:#687887; }
 
+.website-field { position:absolute!important; left:-10000px!important; width:1px!important; height:1px!important; overflow:hidden!important; }
+
 @media(max-width:900px){
   .site-header { height:74px; }.menu-button { display:block; z-index:2; } nav { position:fixed; inset:0 0 auto; padding:105px 24px 35px; flex-direction:column; align-items:stretch; color:#fff; background:var(--navy); transform:translateY(-110%); transition:.3s; } nav.open { transform:translateY(0); }.nav-cta { text-align:center; }
   .hero { min-height:700px; }.hero h1 { max-width:650px; }.hero-stats { display:none; }.slider-controls { bottom:35px; }

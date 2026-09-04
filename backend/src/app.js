@@ -1,5 +1,7 @@
 import cors from 'cors';
 import express from 'express';
+import { rateLimit } from 'express-rate-limit';
+import helmet from 'helmet';
 import nodemailer from 'nodemailer';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -7,8 +9,28 @@ import { pool } from './config/database.js';
 
 export const app = express();
 
+app.set('trust proxy', 1);
+app.disable('x-powered-by');
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"], scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com'], imgSrc: ["'self'", 'data:'],
+      connectSrc: ["'self'"], objectSrc: ["'none'"], frameAncestors: ["'none'"],
+    },
+  },
+}));
 app.use(cors({ origin: process.env.FRONTEND_URL ?? 'http://localhost:5173' }));
-app.use(express.json());
+app.use(express.json({ limit: '10kb' }));
+
+const quoteLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { message: 'Has enviado varias solicitudes. Espera 15 minutos antes de intentarlo nuevamente.' },
+});
 
 const quoteFields = [
   ['name', 'Nombre'], ['company', 'Empresa'], ['phone', 'Teléfono'], ['email', 'Correo'],
@@ -26,12 +48,18 @@ const escapeHtml = (value) => clean(value).replace(/[&<>'"]/g, (character) => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;',
 })[character]);
 
-app.post('/api/quotes', async (req, res, next) => {
+app.post('/api/quotes', quoteLimiter, async (req, res, next) => {
   try {
+    if (clean(req.body.website)) {
+      return res.status(201).json({ message: 'Solicitud enviada correctamente.' });
+    }
     const quote = Object.fromEntries(quoteFields.map(([key]) => [key, clean(req.body[key])]));
     const missingFields = quoteFields.filter(([key]) => !quote[key]).map(([, label]) => label);
     if (missingFields.length) {
       return res.status(400).json({ message: `Completa los siguientes campos: ${missingFields.join(', ')}.` });
+    }
+    if (Object.values(quote).some((value) => value.length > 200)) {
+      return res.status(400).json({ message: 'Uno o más campos superan la longitud permitida.' });
     }
     if (!/^\S+@\S+\.\S+$/.test(quote.email)) {
       return res.status(400).json({ message: 'Ingresa un correo electrónico válido.' });
@@ -96,6 +124,6 @@ app.get(/^(?!\/api(?:\/|$)).*/, (_req, res) => res.sendFile(path.join(frontendDi
 
 app.use((_req, res) => res.status(404).json({ message: 'Ruta no encontrada.' }));
 app.use((error, _req, res, _next) => {
-  console.error(error);
+  console.error('Error procesando la solicitud:', error.message);
   res.status(500).json({ message: 'Error interno del servidor.' });
 });
