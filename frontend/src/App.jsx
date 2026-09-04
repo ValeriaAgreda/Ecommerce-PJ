@@ -45,6 +45,8 @@ function Icon({ name }) {
 export default function App() {
   const [slide, setSlide] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [formStatus, setFormStatus] = useState({ type: 'idle', message: '' });
+  const today = new Date().toLocaleDateString('en-CA');
 
   useEffect(() => {
     const timer = setInterval(() => setSlide((current) => (current + 1) % slides.length), 6500);
@@ -52,6 +54,25 @@ export default function App() {
   }, []);
 
   const closeMenu = () => setMenuOpen(false);
+
+  const submitQuote = async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    setFormStatus({ type: 'loading', message: 'Enviando solicitud…' });
+    try {
+      const response = await fetch('/api/quotes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.fromEntries(new FormData(form))),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || 'No pudimos enviar la solicitud.');
+      form.reset();
+      setFormStatus({ type: 'success', message: '¡Solicitud enviada! Nos pondremos en contacto contigo.' });
+    } catch (error) {
+      setFormStatus({ type: 'error', message: error.message || 'Ocurrió un error. Inténtalo nuevamente.' });
+    }
+  };
 
   return (
     <>
@@ -166,12 +187,15 @@ export default function App() {
         <section className="contact section" id="contacto">
           <div className="page-width contact-grid">
             <div className="contact-copy"><span className="section-label">Hablemos</span><h2>¿Tienes una carga<br/>por transportar?</h2><p>Cuéntanos sobre tu próxima importación. Nuestro equipo se pondrá en contacto contigo para analizar la mejor alternativa logística.</p><div className="contact-note"><span>↗</span><p><b>Respuesta personalizada</b><small>Revisamos cada solicitud de acuerdo con sus necesidades.</small></p></div></div>
-            <form className="contact-form" onSubmit={(event) => event.preventDefault()}>
-              <div className="field-row"><label>Nombre<input type="text" placeholder="Tu nombre"/></label><label>Empresa<input type="text" placeholder="Nombre de tu empresa"/></label></div>
-              <div className="field-row"><label>Teléfono<input type="tel" placeholder="Tu número de contacto"/></label><label>Correo<input type="email" placeholder="nombre@empresa.com"/></label></div>
-              <label>Cuéntanos sobre tu operación<textarea rows="4" placeholder="Origen, destino, tipo de carga y fecha estimada..."></textarea></label>
-              <button className="button primary" type="submit">Enviar solicitud <span>→</span></button>
-              <small className="form-note">Este formulario es informativo y se conectará al backend en la siguiente etapa.</small>
+            <form className="contact-form" onSubmit={submitQuote}>
+              <div className="field-row"><label>Nombre<input name="name" type="text" placeholder="Tu nombre" autoComplete="name" required/></label><label>Empresa<input name="company" type="text" placeholder="Nombre de tu empresa" autoComplete="organization" required/></label></div>
+              <div className="field-row"><label>Teléfono<input name="phone" type="tel" placeholder="Ej. +59170000000" autoComplete="tel" inputMode="tel" pattern="\+?[0-9]{7,15}" maxLength="16" title="Ingresa entre 7 y 15 números; el signo + solo puede ir al inicio." onInput={(event) => { event.currentTarget.value = event.currentTarget.value.replace(/(?!^)\+|[^\d+]/g, '').slice(0, 16); }} required/></label><label>Correo<input name="email" type="email" placeholder="nombre@empresa.com" autoComplete="email" required/></label></div>
+              <div className="field-row"><label>Origen<input name="origin" type="text" placeholder="Ciudad, puerto o frontera" required/></label><label>Destino<input name="destination" type="text" placeholder="Lugar de entrega" required/></label></div>
+              <div className="field-row"><label>Tipo de carga<input name="cargoType" type="text" placeholder="Ej. carga general" required/></label><label>Incoterm<input name="incoterm" type="text" placeholder="Ej. FOB, CIF, EXW" required/></label></div>
+              <div className="field-row"><label>Volumen (m³)<input name="volume" type="number" inputMode="decimal" min="0.01" step="any" placeholder="Ej. 12.5" required/></label><label>Peso (kg)<input name="weight" type="number" inputMode="decimal" min="0.01" step="any" placeholder="Ej. 2500.5" required/></label></div>
+              <label>Fecha estimada para su entrega<input name="estimatedDeliveryDate" type="date" min={today} required/></label>
+              <button className="button primary" type="submit" disabled={formStatus.type === 'loading'}>{formStatus.type === 'loading' ? 'Enviando…' : 'Enviar solicitud'} <span>→</span></button>
+              <small className={`form-note ${formStatus.type}`} role="status" aria-live="polite">{formStatus.message || 'Tus datos serán enviados de forma segura a PJ Services.'}</small>
             </form>
           </div>
         </section>
